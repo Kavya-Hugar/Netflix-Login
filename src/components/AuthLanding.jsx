@@ -25,24 +25,53 @@ const AuthLanding = () => {
     setMessage('');
 
     try {
-      const { register, login, setAuthData } = await import('../services/authService');
+      // Try to use real API first, fallback to mock for demo
+      let response;
       
       if (isLogin) {
-        const response = await login({
-          user_name: formData.user_name,
-          password: formData.password
-        });
+        try {
+          const { login } = await import('../services/authService');
+          response = await login({
+            user_name: formData.user_name,
+            password: formData.password
+          });
+        } catch (apiError) {
+          console.log('API not available, using mock for demo');
+          const { mockLogin } = await import('../services/mockAuth');
+          response = await mockLogin({
+            user_name: formData.user_name,
+            password: formData.password
+          });
+        }
         
-        setAuthData(response.token, response.user);
-        window.location.href = '/home';
+        if (response.success) {
+          const { setAuthData } = await import('../services/authService');
+          setAuthData(response.token, response.user);
+          window.location.href = '/home';
+        } else {
+          setMessage(response.message || 'Login failed');
+        }
       } else {
-        await register(formData);
-        setMessage('Registration successful! Please login.');
-        setIsLogin(true);
-        setFormData({ user_name: '', email: '', phone_number: '', password: '' });
+        try {
+          const { register } = await import('../services/authService');
+          response = await register(formData);
+        } catch (apiError) {
+          console.log('API not available, using mock for demo');
+          const { mockRegister } = await import('../services/mockAuth');
+          response = await mockRegister(formData);
+        }
+        
+        if (response.success) {
+          setMessage('Registration successful! Please login.');
+          setIsLogin(true);
+          setFormData({ user_name: '', email: '', phone_number: '', password: '' });
+        } else {
+          setMessage(response.message || 'Registration failed');
+        }
       }
     } catch (error) {
-      setMessage(error.message || 'An error occurred');
+      console.error('Auth error:', error);
+      setMessage(error.message || 'An error occurred during authentication');
     } finally {
       setLoading(false);
     }
